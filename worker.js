@@ -5,6 +5,28 @@ const allowedMailboxes = ['INBOX', 'Junk'];
 // Logo URL
 const LOGO_URL = 'https://img.xwyue.com/i/2025/01/23/6791c8b24239a.png';
 
+// PWA 清单配置
+const manifestJSON = {
+  "short_name": "邮箱客户端",
+  "name": "微软邮箱 API 客户端",
+  "icons": [
+    {
+      "src": "https://img.xwyue.com/i/2025/01/23/6791c8b24239a.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://img.xwyue.com/i/2025/01/23/6791c8b24239a.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff"
+};
+
 // 主页 HTML 模板
 const indexHTML = `
 <!DOCTYPE html>
@@ -605,6 +627,13 @@ const manageHTML = `
 
 async function handleRequest(request) {
     const url = new URL(request.url);
+
+    // 响应 PWA 的 manifest.json 请求
+    if (url.pathname === '/manifest.json' && request.method === 'GET') {
+        return new Response(JSON.stringify(manifestJSON), {
+            headers: { 'Content-Type': 'application/json' },
+        });
+    }
 
     // 主页路由
     if (url.pathname === '/' && request.method === 'GET') {
