@@ -625,7 +625,7 @@ const manageHTML = `
 </html>
 `;
 
-async function handleRequest(request) {
+async function handleRequest(request, env) {
     const url = new URL(request.url);
 
     // 响应 PWA 的 manifest.json 请求
@@ -652,11 +652,12 @@ async function handleRequest(request) {
     // 获取账号列表的路由
     if (url.pathname === '/accounts' && request.method === 'GET') {
         try {
-            const keys = await ACCOUNTS.list();
+            const { results } = await env.db.prepare("SELECT * FROM accounts").all();
             const accounts = {};
-            for (const key of keys.keys) {
-                const account = await ACCOUNTS.get(key.name, 'json');
-                accounts[key.name] = account;
+            if (results) {
+                results.forEach(row => {
+                    accounts[row.email] = { refresh_token: row.refresh_token, client_id: row.client_id };
+                });
             }
             return new Response(JSON.stringify(accounts), {
                 headers: { 'Content-Type': 'application/json' },
@@ -676,7 +677,7 @@ async function handleRequest(request) {
                 return new Response('Missing required fields', { status: 400 });
             }
 
-            await ACCOUNTS.put(email, JSON.stringify({ refresh_token, client_id }));
+            await env.db.prepare("INSERT INTO accounts (email, refresh_token, client_id) VALUES (?, ?, ?) ON CONFLICT(email) DO UPDATE SET refresh_token=excluded.refresh_token, client_id=excluded.client_id").bind(email, refresh_token, client_id).run();
             return new Response('Account added', { status: 200 });
         } catch (error) {
             return new Response('Error adding account: ' + error.message, { status: 500 });
@@ -691,7 +692,7 @@ async function handleRequest(request) {
                 return new Response('Email is required', { status: 400 });
             }
 
-            await ACCOUNTS.delete(email);
+            await env.db.prepare("DELETE FROM accounts WHERE email = ?").bind(email).run();
             return new Response('Account deleted', { status: 200 });
         } catch (error) {
             return new Response('Error deleting account: ' + error.message, { status: 500 });
@@ -706,6 +707,8 @@ async function handleRequest(request) {
     return new Response('Not Found', { status: 404 });
 }
 
-addEventListener('fetch', event => {
-    event.respondWith(handleRequest(event.request));
-});
+export default {
+    async fetch(request, env, ctx) {
+        return handleRequest(request, env);
+    }
+};
